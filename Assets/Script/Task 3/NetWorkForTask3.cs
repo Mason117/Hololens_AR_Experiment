@@ -11,7 +11,7 @@ public class NetWorkForTask3 : MonoBehaviour
 
     //电脑客户端task3！！！！！
     public NetworkClient client;
-    public string Serverip = "192.168.12.203";  //hololens ip address
+    public string Serverip = "192.168.12.114";  //hololens ip address
     public int Serverport = 8808;
     public const short RegisterHotsMsgId = 1003;
 
@@ -20,36 +20,41 @@ public class NetWorkForTask3 : MonoBehaviour
     private bool testStart = false;
 
     private int number;
-    private int lastNumber=0;
+    private int lastNumber = 0;
     private int numberM;
-    private int testRecord=0;
+    private int testRecord = 0;
     private int buttonRecord = 0;
 
     private float nextTime = 0f;
-    private float testStartTime = 0f;
+   // private float testStartTime = 0f;
     private int aim;
     private float rate;
-
-
+    private static int trialNumber = 0;
+    private float everStartTime = 0f;
     private static int line = 0;
+    private static string path;
     private string[] plan;
-    private string[] plan1={"a","w","d","s"};
-    private string[] plan2 = { "1", "2", "3", "4" };
-    private string[] plan3 = { "g", "y", "j", "l" };
+    private string[] plan1 = { "w", "a", "s", "d" };
+ 
 
     [SerializeField]
     public Text theTextInformation;
 
+    [SerializeField]
+    public Text theTextInformation1;
+
     public class Actionmsg : MessageBase
     {
         public float aimRate;
-        public float rate;
+        public bool letterChange;
+        public int buttonRecords;
         public int state;
     }
 
     void Start()
     {
         ChoosePlan();
+        path = Application.dataPath + "/Task3_Log"+ System.DateTime.Now.Hour.ToString()+"_"+ System.DateTime.Now.Minute.ToString()+ ".txt";
     }
 
     // Update is called once per frame
@@ -70,6 +75,7 @@ public class NetWorkForTask3 : MonoBehaviour
                 countdown = false;
                 GenerateTest();
                 testStart = true;
+                theTextInformation.text = " ";
             }
         }
 
@@ -77,25 +83,26 @@ public class NetWorkForTask3 : MonoBehaviour
         {
             if (Time.time > nextTime)
             {
-                GenerateTest();
+                GenerateTest();//改变按键
             }
 
-            if (Input.GetKeyDown(theTextInformation.text))
+            if (Input.GetKeyDown(theTextInformation1.text))
             {
-                float timeInterval;
+                bool changeSign;
                 buttonRecord++;
-                if (buttonRecord==1)
+                if (buttonRecord == 1)
                 {
-                    testStartTime = Time.time;//time.time以0.5秒为单位从一开始
-                    timeInterval = 2f;
+                    changeSign = true;
+                    Reaction((Time.time - everStartTime).ToString("0.00"));
                 }
                 else
                 {
-                    timeInterval = Time.time - testStartTime;
+                    changeSign = false;
                 }
-                rate = buttonRecord / timeInterval;
-                Sending(aim, rate,1);
-                Myprint( theTextInformation.text, aim.ToString(), rate.ToString());
+
+                rate = buttonRecord / (Time.time - everStartTime);
+                Sending(aim, changeSign, buttonRecord, 1);
+                Myprint(theTextInformation1.text, aim.ToString(), rate.ToString("0.00"));//log,反应时间可以由按键第一行的时间减去everStartTime得出。
             }
         }
     }
@@ -105,8 +112,8 @@ public class NetWorkForTask3 : MonoBehaviour
         //generate the test button and target rate
         number = UnityEngine.Random.Range(1, 500);
         Random ro = new Random(number);
-        number=ro.Next(1, 5);
-        if (number==lastNumber || number==5)
+        number = ro.Next(1, 5);
+        if (number == lastNumber || number == 5)
         {
             GenerateTest();
             return;
@@ -123,15 +130,12 @@ public class NetWorkForTask3 : MonoBehaviour
             EndingTest();
             return;
         }
-
-        //到底是整数的好还是小数的好现在不知道！！！！！！！！！！！！！！！！！！
-        aim = UnityEngine.Random.Range(3, 8);
-        theTextInformation.text = ReturnStr(number);
-        Sending(aim, 0f,1);
-        Debug.Log(number);
-        nextTime = Time.time + 8f;
-        //testStartTime = Time.time;
+        aim = UnityEngine.Random.Range(2, 7);
+        theTextInformation1.text = ReturnStr(number);
+        Sending(aim, true, 0, 1);
+        nextTime = Time.time + 10f;
         buttonRecord = 0;
+        everStartTime = Time.time;
     }
 
 
@@ -156,14 +160,14 @@ public class NetWorkForTask3 : MonoBehaviour
         return temp;
     }
 
-    void Sending(float theinfor, float theRate, int thestate)
+    void Sending(float theInfor, bool theChange, int theRecord, int theState)
     {
         Actionmsg msg = new Actionmsg();
-        msg.aimRate = theinfor;
-        msg.rate = theRate;
-        msg.state = thestate;
+        msg.aimRate = theInfor;
+        msg.letterChange = theChange;
+        msg.buttonRecords = theRecord;
+        msg.state = theState;
         client.Send(RegisterHotsMsgId, msg);
-        //Debug.Log("Sending..."+ theinfor);
     }
 
     private void OnGUI()
@@ -175,9 +179,11 @@ public class NetWorkForTask3 : MonoBehaviour
 
             if (GUILayout.Button("Connet"))
             {
+                trialNumber++;
                 client = new NetworkClient();
                 client.RegisterHandler(MsgType.Connect, OnConnected);
                 client.Connect(Serverip, Serverport);
+                PrintNewTrial(trialNumber.ToString());
             }
         }
     }
@@ -191,55 +197,49 @@ public class NetWorkForTask3 : MonoBehaviour
         number = System.DateTime.Now.Second + 4;
     }
 
-    public static void Myprint(string info, string info1, string info2)
-    {
-        line++;
-        string path = Application.dataPath + "/TaskLogFile.txt";
-        StreamWriter sw;
-        //Debug.Log(path);
-        if (line == 1)
-        {
-            sw = new StreamWriter(path, false);
-            string fileTitle = "日志文件创建的时间  " + System.DateTime.Now.ToString();
-            sw.WriteLine(fileTitle);
-        }
-        else
-        {
-            sw = new StreamWriter(path, true);
-        }
-
-        string lineInfo = line + "\t" + "时刻 " + Time.time + ": ";
-        sw.WriteLine(lineInfo);
-        sw.WriteLine(info+"   "+info1+"    "+info2);
-        //Debug.Log(info);
-        sw.Flush();
-        sw.Close();
-    }
-
     void ChoosePlan()
     {
-        int randomNumber = UnityEngine.Random.Range(1, 5);
-        int randomNumber2 = UnityEngine.Random.Range(1, 20);
-        int type = (randomNumber + randomNumber2) % 3;
-        switch (type)
-        {
-            case 0:
-                plan = plan1;
-                break;
-            case 1:
-                plan = plan2;
-                break;
-            case 2:
-                plan = plan3;
-                break;
-        }
+        plan = plan1;
     }
 
     void EndingTest()
     {
+        for (int i = 0; i < 5; i++)
+        {
+            Sending(0f, false, 0, 0);
+        }
         SceneManager.LoadScene(0);
-        Sending(0f, 0f,0);
-        ChoosePlan();
     }
 
+    public static void Myprint(string info, string info1, string info2)
+    {
+        line++;
+        StreamWriter sw;
+        sw = new StreamWriter(path, true);
+        sw.WriteLine(line + "\t"+ info+ "\t" + info1 + "\t" + info2 + "\t" +Time.time);
+        sw.Flush();
+        sw.Close();
+    }
+
+    public static void PrintNewTrial(string info)
+    {
+        StreamWriter sw;
+        sw = new StreamWriter(path, true);
+        string fileTitle = "Date Time for Trial " + info + " : " + System.DateTime.Now.ToString();
+        sw.WriteLine(fileTitle);
+        string lineInfo = "line"+ "\t" + "Button" + "\t" + "Aim" + "\t" + "Rate" + "\t" + "Time ";
+        sw.WriteLine(lineInfo);
+        sw.Flush();
+        sw.Close();
+    }
+
+    public static void Reaction(string info)
+    {
+        StreamWriter sw;
+        sw = new StreamWriter(path, true);
+        string lineInfo = "Reaction time :" + info;
+        sw.WriteLine(lineInfo);
+        sw.Flush();
+        sw.Close();
+    }
 }

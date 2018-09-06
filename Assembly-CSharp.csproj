@@ -73,7 +73,6 @@
     <Compile Include="Assets\Script\ObstacleControl2.cs" />
     <Compile Include="Assets\Script\Task 3\NetWorkForTask3.cs" />
     <Compile Include="Assets\Script\Task 3\TestPart.cs" />
-    <None Include="Assets\TaskLogFile.txt" />
     <Reference Include="UnityEditor.StandardEvents">
       <HintPath>D:/FProject/Runner/Library/ScriptAssemblies/UnityEditor.StandardEvents.dll</HintPath>
     </Reference>

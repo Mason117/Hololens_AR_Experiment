@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
@@ -33,78 +34,83 @@ public class GameControl : MonoBehaviour
     [SerializeField]
     float timeToBoost = 5f;
     float nextBoost;
-
-    int highScore = 0, yourScore = 0;
-
-    public int obstacleNumber = 0;
+    private static float timeLimt = 200;
+    private static float deductTime = 0;
+    private static int trial = 1;
+    int timeRecord = 0, UserScore = 0;
 
     public static bool gameStopped;
     public static bool changePlane;
-
+    private static string path;
     float nextScoreIncrease = 0f;
 
     private int Times = 0;
     private int lastTime = 233;
 
-    private float timeLeft = 1f;
 
     // Use this for initialization
     void Start()
-    {     
+    {
         if (instance == null)
             instance = this;
         else if (instance != this)
             Destroy(gameObject);
 
         restartButton.SetActive(false);
-        yourScore = 0;
+        UserScore = 0;
         gameStopped = true;
         changePlane = false;
 
-        highScore = PlayerPrefs.GetInt("highScore");
         nextSpawn = Time.time + spawnRate;
         nextBoost = Time.unscaledTime + timeToBoost;
         Time.timeScale = 0;//暂停
+
+        path = Application.dataPath + "/Task2_Log" + System.DateTime.Now.Hour.ToString() + "_" + System.DateTime.Now.Minute.ToString() + ".txt";
     }
 
     // Update is called once per frame
     void Update()
     {
-        timeLeft -= Time.deltaTime;
-       // Debug.Log(timeLeft);
-        if (timeLeft < 0)
+
+        if (!gameStopped)
         {
-            if (!gameStopped)
-            {
-                IncreaseYourScore();
-            }
-            highScoreText.text = "High Score: " + highScore;
-            yourScoreText.text = "Your Score: " + yourScore;
+            highScoreText.text = "Time Spnd: " + (int)(Time.time-deductTime);
+            yourScoreText.text = "Your Mistakes: " + UserScore;
 
-            if (Time.time > nextSpawn)
-                SpawnObstacle();
+        if (Time.time > nextSpawn)
+            SpawnObstacle();
 
-            if (Time.unscaledTime > nextBoost && !gameStopped)
-                BoostTime();
+        if (Time.unscaledTime > nextBoost && !gameStopped)
+            BoostTime();
+
+        if (Time.time > timeLimt)
+        {
+            // StopGame();
+            RestartGame();
         }
+        }
+
     }
 
-    public void DinoHit()
+    public void StopGame()
     {
-        if (yourScore > highScore)
-            PlayerPrefs.SetInt("highScore", yourScore);
         Time.timeScale = 0;//暂停游戏场景！！！
         gameStopped = true;
         restartButton.SetActive(true);
     }
 
+    public void DinoHit()
+    {
+        UserScore++;
+        GetComponent<NewNetWorkC>().Sending(0,0,1);
+        Myprint(trial, UserScore, Time.time - deductTime);
+    }
+
     void SpawnObstacle()
     {
-        
         nextSpawn = Time.time + spawnRate;
-
         int randomObstacle = Random.Range(0, obstacles.Length);
-        if (randomObstacle==lastTime)
+        if (randomObstacle == lastTime)
         {
             Times++;
         }
@@ -113,7 +119,7 @@ public class GameControl : MonoBehaviour
             Times = 0;
         }
         //确保不要连续生成三个一样的随机数
-        if (Times>=2)
+        if (Times >= 2)
         {
             SpawnObstacle();
         }
@@ -121,34 +127,49 @@ public class GameControl : MonoBehaviour
         {
             Instantiate(obstacles[randomObstacle], spawnPoint.position, Quaternion.identity);
             lastTime = randomObstacle;
-            obstacleNumber++;
-            if (obstacleNumber>5)
-            {
-                changePlane = true;
-                obstacleNumber = 0;
-                //恐龙那边会把changeplane变回false
-            }
         }
     }
 
     void BoostTime()
     {
         nextBoost = Time.unscaledTime + timeToBoost;
-        Time.timeScale += 0.15f;
+        Time.timeScale += 0.3f;
     }
 
     void IncreaseYourScore()
     {
         if (Time.unscaledTime > nextScoreIncrease)
         {
-            yourScore += 1;
             nextScoreIncrease = Time.unscaledTime + 1;
         }
     }
 
     public void RestartGame()
     {
+
         SceneManager.LoadScene("SampleScene");
+        deductTime += 200;
+        timeLimt += 200;
+        trial += 1;
     }
 
+    public static void Myprint(int info, int info1, float info2)
+    {
+        StreamWriter sw;
+        sw = new StreamWriter(path, true);
+        if (info1==1)
+        {
+            string fileTitle = "Date Time for Trial " + info + " : " + System.DateTime.Now.ToString();
+            sw.WriteLine(fileTitle);
+            string lineInfo = "Hit" +"\t" + "Time ";
+            sw.WriteLine(lineInfo);
+            sw.WriteLine(info1 + "\t" + info2 );
+        }
+        else
+        {
+            sw.WriteLine(info1 + "\t" + info2);
+        }
+        sw.Flush();
+        sw.Close();
+    }
 }
